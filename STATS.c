@@ -78,8 +78,6 @@ int main(){
         } 
     }
     
-
-    
     // Create 3 semaphores to protect 3 critical sections
     for (int i = 0; i < 3; i++){
         sem_id[i] = semget((key_t)1234, 1, 0666 | IPC_CREAT);
@@ -89,7 +87,7 @@ int main(){
     pid_t pid[4], wpid;
 
     int tmp;
-    
+
     //Create 4 child processes
 	for (int i = 0; i < 4; i++){
 		pid[i] = fork();
@@ -105,8 +103,6 @@ int main(){
         if(!semaphore_p(sem_id[0]))
                 exit(EXIT_FAILURE);
 
-        printf("PID: % d First number: %d\n", getpid(), array->data[0]);
-
         // Sort numbers
         if (array->data[0] < array->data[1]){
             int temp = array->data[0];
@@ -114,34 +110,79 @@ int main(){
             array->data[1] = temp;
         } 
 
-        printf("PID: % d First number: %d\n", getpid(), array->data[0]);
+        //printf("PID: % d First number: %d\n", getpid(), array->data[0]);
 
         // Release first semaphore
         if(!semaphore_v(sem_id[0]))
                 exit(EXIT_FAILURE);
         
         exit(EXIT_SUCCESS);
+
+    // Process P2    
     } else if (pid[1] == 0) {
+
+        //Process P2 needs the first and second sempaphore
         if(!semaphore_p(sem_id[0]))
                 exit(EXIT_FAILURE);
-        printf("PID: % d First number: %d\n", getpid(), array->data[0]);
-        exit(EXIT_SUCCESS);
+        if(!semaphore_p(sem_id[1]))
+                exit(EXIT_FAILURE);
+
+        // Sort numbers
+        if (array->data[1] < array->data[2]){
+            int temp = array->data[1];
+            array->data[1] = array->data[2];
+            array->data[2] = temp;
+        } 
+
+        //printf("PID: % d First number: %d\n", getpid(), array->data[1]);
+
+        if(!semaphore_v(sem_id[1]))
+                exit(EXIT_FAILURE);
         if(!semaphore_v(sem_id[0]))
                 exit(EXIT_FAILURE);
+
+        exit(EXIT_SUCCESS);
+
+    // Process P3            
     } else if (pid[2] == 0){
-        if(!semaphore_p(sem_id[0]))
+
+        // Process P3 needs the second and third semaphores
+        if(!semaphore_p(sem_id[1]))
                 exit(EXIT_FAILURE);
-        printf("PID: % d First number: %d\n", getpid(), array->data[0]);
+        if(!semaphore_p(sem_id[2]))
+                exit(EXIT_FAILURE);
+
+        // Sort numbers
+        if (array->data[2] < array->data[3]){
+            int temp = array->data[2];
+            array->data[2] = array->data[3];
+            array->data[3] = temp;
+        } 
+
+        if(!semaphore_v(sem_id[2]))
+                exit(EXIT_FAILURE);
+        if(!semaphore_v(sem_id[1]))
+                exit(EXIT_FAILURE);
+
         exit(EXIT_SUCCESS);
-        if(!semaphore_v(sem_id[0]))
-                exit(EXIT_FAILURE);
+
+    // Process P4
     } else if (pid[3] == 0){
-        if(!semaphore_p(sem_id[0]))
+
+        if(!semaphore_p(sem_id[2]))
                 exit(EXIT_FAILURE);
-        printf("PID: % d First number: %d\n", getpid(), array->data[0]);
+
+        // Sort numbers
+        if (array->data[3] < array->data[4]){
+            int temp = array->data[3];
+            array->data[3] = array->data[4];
+            array->data[3] = temp;
+        } 
+
+        if(!semaphore_v(sem_id[2]))
+                exit(EXIT_FAILURE);
         exit(EXIT_SUCCESS);
-        if(!semaphore_v(sem_id[0]))
-                exit(EXIT_FAILURE);
+
     }
 
     //Initialize semaphores
@@ -152,7 +193,19 @@ int main(){
         }
     }
 
-    while ((wpid = wait(&tmp)) > 0);
+    while (true){
+        if (pCount[i] == 4 & numSwap[i] == 0){
+            break;
+        }
+    }
+
+    printf("PID: % d First number: %d\n", getpid(), array->data[0]);
+    printf("PID: % d First number: %d\n", getpid(), array->data[1]);
+    printf("PID: % d First number: %d\n", getpid(), array->data[2]);
+    printf("PID: % d First number: %d\n", getpid(), array->data[3]);
+    printf("PID: % d First number: %d\n", getpid(), array->data[4]);
+
+    exit(EXIT_SUCCESS);
 
 }
 
