@@ -17,8 +17,8 @@ static void del_semvalue(int sem_id);
 static int semaphore_p(int sem_id);
 static int semaphore_v(int sem_id);
 
-// Array of semaphores we have 3 critical sections to we need 3 semaphores
-static int sem_id[3];
+// Array of semaphores we have 4 critical sections to we need 3 semaphores
+static int sem_id[4];
 
 static char const *str;
 
@@ -78,7 +78,7 @@ int main(){
         } 
     }
     
-    // Create 3 semaphores to protect 3 critical sections
+    // Create 4 semaphores to protect 3 critical sections
     for (int i = 0; i < 3; i++){
         sem_id[i] = semget((key_t)1234, 1, 0666 | IPC_CREAT);
     }
@@ -98,112 +98,199 @@ int main(){
 
     // Process P1
     if (pid[0] == 0){
+        bool swap;
+        for (;;){
+            swap = false;
+            //P1 needs first semaphore only
+            if(!semaphore_p(sem_id[0]))
+                    exit(EXIT_FAILURE);
 
-        //P1 needs first semaphore only
-        if(!semaphore_p(sem_id[0]))
+            // Sort numbers
+            if (array->data[0] < array->data[1]){
+                int temp = array->data[0];
+                array->data[0] = array->data[1];
+                array->data[1] = temp;
+                swap = true;
+            } 
+
+            // Release first semaphore
+            if(!semaphore_v(sem_id[0]))
+                    exit(EXIT_FAILURE);
+
+
+            if(!semaphore_p(sem_id[3]))
                 exit(EXIT_FAILURE);
 
-        // Sort numbers
-        if (array->data[0] < array->data[1]){
-            int temp = array->data[0];
-            array->data[0] = array->data[1];
-            array->data[1] = temp;
-        } 
+            array->swap[0] = 0;
+            if (swap){
+                array->swap[1] = 1;
+            } else {
 
-        //printf("PID: % d First number: %d\n", getpid(), array->data[0]);
-
-        // Release first semaphore
-        if(!semaphore_v(sem_id[0]))
+                int sum = 0; 
+                for (int i = 0; i < 4; i++){
+                    sum = sum + array->swap[i];
+                }
+                printf("\n");
+                if (sum == 0){
+                    exit(EXIT_SUCCESS);
+                }
+            }
+            if(!semaphore_v(sem_id[3]))
                 exit(EXIT_FAILURE);
+            
+        }
         
         exit(EXIT_SUCCESS);
 
     // Process P2    
     } else if (pid[1] == 0) {
+        bool swap;
+        for (;;){
+            swap = false;
+            //Process P2 needs the first and second sempaphore
+            if(!semaphore_p(sem_id[0]))
+                    exit(EXIT_FAILURE);
+            if(!semaphore_p(sem_id[1]))
+                    exit(EXIT_FAILURE);
 
-        //Process P2 needs the first and second sempaphore
-        if(!semaphore_p(sem_id[0]))
+            // Sort numbers
+            if (array->data[1] < array->data[2]){
+                int temp = array->data[1];
+                array->data[1] = array->data[2];
+                array->data[2] = temp;
+                swap = true;
+            } 
+
+            //printf("PID: % d First number: %d\n", getpid(), array->data[1]);
+
+            if(!semaphore_v(sem_id[1]))
+                    exit(EXIT_FAILURE);
+            if(!semaphore_v(sem_id[0]))
+                    exit(EXIT_FAILURE);
+
+            if(!semaphore_p(sem_id[3]))
                 exit(EXIT_FAILURE);
-        if(!semaphore_p(sem_id[1]))
+
+            array->swap[1] = 0;
+            if (swap){
+                array->swap[0] = 1;
+                array->swap[2] = 1;
+            } else { 
+                int sum = 0; 
+                for (int i = 0; i < 4; i++){
+                    sum = sum + array->swap[i];
+                }
+                if (sum == 0){
+                    exit(EXIT_SUCCESS);
+                }
+            }
+            if(!semaphore_v(sem_id[3]))
                 exit(EXIT_FAILURE);
-
-        // Sort numbers
-        if (array->data[1] < array->data[2]){
-            int temp = array->data[1];
-            array->data[1] = array->data[2];
-            array->data[2] = temp;
-        } 
-
-        //printf("PID: % d First number: %d\n", getpid(), array->data[1]);
-
-        if(!semaphore_v(sem_id[1]))
-                exit(EXIT_FAILURE);
-        if(!semaphore_v(sem_id[0]))
-                exit(EXIT_FAILURE);
-
-        exit(EXIT_SUCCESS);
+        }
 
     // Process P3            
     } else if (pid[2] == 0){
+        bool swap;
+        for (int i = 0; i < 5; i++){
+            swap = false;
+            // Process P3 needs the second and third semaphores
+            if(!semaphore_p(sem_id[1]))
+                    exit(EXIT_FAILURE);
+            if(!semaphore_p(sem_id[2]))
+                    exit(EXIT_FAILURE);
 
-        // Process P3 needs the second and third semaphores
-        if(!semaphore_p(sem_id[1]))
-                exit(EXIT_FAILURE);
-        if(!semaphore_p(sem_id[2]))
+            // Sort numbers
+            if (array->data[2] < array->data[3]){
+                int temp = array->data[2];
+                array->data[2] = array->data[3];
+                array->data[3] = temp;
+                swap = true;
+            } 
+
+            if(!semaphore_v(sem_id[2]))
+                    exit(EXIT_FAILURE);
+            if(!semaphore_v(sem_id[1]))
+                    exit(EXIT_FAILURE);
+
+            if(!semaphore_p(sem_id[3]))
                 exit(EXIT_FAILURE);
 
-        // Sort numbers
-        if (array->data[2] < array->data[3]){
-            int temp = array->data[2];
-            array->data[2] = array->data[3];
-            array->data[3] = temp;
-        } 
-
-        if(!semaphore_v(sem_id[2]))
+            array->swap[2] = 0;
+            if (swap){
+                array->swap[1] = 1;
+                array->swap[3] = 1;
+            } else { 
+                int sum = 0; 
+                for (int i = 0; i < 4; i++){
+                    sum = sum + array->swap[i];
+                }
+                if (sum == 0){
+                    exit(EXIT_SUCCESS);
+                }
+            }
+            if(!semaphore_v(sem_id[3]))
                 exit(EXIT_FAILURE);
-        if(!semaphore_v(sem_id[1]))
-                exit(EXIT_FAILURE);
+        }
 
         exit(EXIT_SUCCESS);
 
     // Process P4
     } else if (pid[3] == 0){
+        bool swap;
+        for (;;){
+            swap = false;
+            if(!semaphore_p(sem_id[2]))
+                    exit(EXIT_FAILURE);
 
-        if(!semaphore_p(sem_id[2]))
+            // Sort numbers
+            if (array->data[3] < array->data[4]){
+                int temp = array->data[3];
+                array->data[3] = array->data[4];
+                array->data[4] = temp;
+                swap = true;
+            } 
+
+            if(!semaphore_v(sem_id[2]))
+                    exit(EXIT_FAILURE);
+
+            if(!semaphore_p(sem_id[3]))
                 exit(EXIT_FAILURE);
 
-        // Sort numbers
-        if (array->data[3] < array->data[4]){
-            int temp = array->data[3];
-            array->data[3] = array->data[4];
-            array->data[3] = temp;
-        } 
-
-        if(!semaphore_v(sem_id[2]))
+            array->swap[3] = 0;
+            if (swap){
+                array->swap[2] = 1;
+            } else {
+                int sum = 0; 
+                for (int i = 0; i < 4; i++){
+                    sum = sum + array->swap[i];
+                }
+                if (sum == 0){
+                    exit(EXIT_SUCCESS);
+                }
+            }
+            if(!semaphore_v(sem_id[3]))
                 exit(EXIT_FAILURE);
+        }
+
         exit(EXIT_SUCCESS);
 
     }
 
     //Initialize semaphores
-    for (int i = 0; i < 3; i++){
+    for (int i = 0; i < 4; i++){
         if (!set_semvalue(sem_id[i])) {
             fprintf(stderr, "Failed to initialize semaphore\n");
             exit(EXIT_FAILURE);
         }
     }
 
-    while (true){
-        if (pCount[i] == 4 & numSwap[i] == 0){
-            break;
-        }
-    }
+    while ((wpid = wait(&tmp)) > 0);
 
-    printf("PID: % d First number: %d\n", getpid(), array->data[0]);
-    printf("PID: % d First number: %d\n", getpid(), array->data[1]);
-    printf("PID: % d First number: %d\n", getpid(), array->data[2]);
-    printf("PID: % d First number: %d\n", getpid(), array->data[3]);
-    printf("PID: % d First number: %d\n", getpid(), array->data[4]);
+    printf("PID: % d Number: %d\n", getpid(), array->data[0]);
+    printf("PID: % d Number: %d\n", getpid(), array->data[1]);
+    printf("PID: % d Number: %d\n", getpid(), array->data[2]);
+    printf("PID: % d Number: %d\n", getpid(), array->data[3]);
+    printf("PID: % d Number: %d\n", getpid(), array->data[4]);
 
     exit(EXIT_SUCCESS);
 
