@@ -35,6 +35,8 @@ int main(){
 	act.sa_flags = 0;
 
 	sigaction(SIGINT, &act, 0);
+
+    (void) signal(SIGINT, end);
  
 	void *shared_memory = (void *)0;
 
@@ -66,7 +68,6 @@ int main(){
     bool debug = false;
 
     // Ask user for 5 distinct numbers
-
     for (int i = 0; i < 5; i++){
         int n;
         printf("Please enter integer %d: ", i+1);
@@ -75,11 +76,13 @@ int main(){
     }
 
     bool valid = false;
+
+    // Ask user if debug mode or not
     while (1){
         char c;
         fflush(stdin);
         printf("Run in debug mode? (Y/N)");
-        scanf("%c", &c);
+        scanf(" %c", &c);
         if (c == 'Y' | c == 'y'){
             debug = true;
             valid = true;
@@ -102,6 +105,8 @@ int main(){
 
     // Process IDs
     pid_t pid[4], wpid;
+
+    int tmp;
 
     //Create 4 child processes
 	for (int i = 0; i < 4; i++){
@@ -132,13 +137,16 @@ int main(){
             // Release first semaphore
             if(!semaphore_v(sem_id[0]))
                 exit(EXIT_FAILURE);
+            
+            if (done)
+                exit(EXIT_SUCCESS);
 
             // Get 4th semaphore to set flags and check if done
             if(!semaphore_p(sem_id[3]))
                 exit(EXIT_FAILURE);
 
+            // Set flags, check if done and alert other processes as necessary
             array->swap[0] = 0;
-
             if (swap){
                 if (debug)
                     printf("Process P1: Swapped\n");
@@ -152,6 +160,11 @@ int main(){
                 }
                 if (sum == 0){
                     kill(getppid(), SIGINT);
+                    if(!semaphore_v(sem_id[3]))
+                        exit(EXIT_FAILURE);
+                    for (int i = 0; i < 4; i++){
+                        kill(pid[i], SIGINT);
+                    }
                     exit(EXIT_SUCCESS);
                 }
             }
@@ -189,11 +202,14 @@ int main(){
             if(!semaphore_v(sem_id[0]))
                 exit(EXIT_FAILURE);
 
+            if (done)
+                exit(EXIT_SUCCESS);
 
             // Get 4th semaphore to set flags and check if done
             if(!semaphore_p(sem_id[3]))
                 exit(EXIT_FAILURE);
 
+            // Set flags, check if done and alert other processes as necessary
             array->swap[1] = 0;
             if (swap){
                 if (debug)
@@ -209,6 +225,11 @@ int main(){
                 }
                 if (sum == 0){
                     kill(getppid(), SIGINT);
+                    if(!semaphore_v(sem_id[3]))
+                        exit(EXIT_FAILURE);
+                    for (int i = 0; i < 4; i++){
+                        kill(pid[i], SIGINT);
+                    }
                     exit(EXIT_SUCCESS);
                 }
             }
@@ -243,10 +264,14 @@ int main(){
             if(!semaphore_v(sem_id[1]))
                 exit(EXIT_FAILURE);
 
+            if (done)
+                exit(EXIT_SUCCESS);
+
             // Get 4th semaphore to set flags and check if done
             if(!semaphore_p(sem_id[3]))
                 exit(EXIT_FAILURE);
 
+            // Set flags, check if done and alert other processes as necessary
             array->swap[2] = 0;
             if (swap){
                 if (debug)
@@ -262,6 +287,11 @@ int main(){
                 }
                 if (sum == 0){
                     kill(getppid(), SIGINT);
+                    if(!semaphore_v(sem_id[3]))
+                        exit(EXIT_FAILURE);
+                    for (int i = 0; i < 4; i++){
+                        kill(pid[i], SIGINT);
+                    }
                     exit(EXIT_SUCCESS);
                 }
             }
@@ -289,10 +319,14 @@ int main(){
             if(!semaphore_v(sem_id[2]))
                 exit(EXIT_FAILURE);
 
-            // Get 4th semaphore to set flags and check if done
+            if (done)
+                exit(EXIT_SUCCESS);
+
+            // Get 4th semaphore
             if(!semaphore_p(sem_id[3]))
                 exit(EXIT_FAILURE);
 
+            // Set flags, check if done and alert other processes as necessary
             array->swap[3] = 0;
             if (swap){
                 if (debug)
@@ -307,6 +341,11 @@ int main(){
                 }
                 if (sum == 0){
                     kill(getppid(), SIGINT);
+                    if(!semaphore_v(sem_id[3]))
+                        exit(EXIT_FAILURE);
+                    for (int i = 0; i < 4; i++){
+                        kill(pid[i], SIGINT);
+                    }
                     exit(EXIT_SUCCESS);
                 }
             }
@@ -316,7 +355,7 @@ int main(){
 
     }
 
-    //Initialize semaphores
+    //Initialize semaphores for the processes to use
     for (int i = 0; i < 4; i++){
         if (!set_semvalue(sem_id[i])) {
             fprintf(stderr, "Failed to initialize semaphore\n");
@@ -324,22 +363,33 @@ int main(){
         }
     }
 
-    (void) signal(SIGINT, end);
+    // Wait untill we receive a signal
     pause();
     if(done){
-        //kill all children
-        printf("Array[0]: %d\n", array->data[0]);
-        printf("Array[1]: %d\n", array->data[1]);
-        printf("Array[2]: %d\n", array->data[2]);
-        printf("Array[3]: %d\n", array->data[3]);
-        printf("Array[4]: %d\n", array->data[4]);
+        for (int i = 0; i < 4; i++){
+            kill(pid[i], SIGINT);
+        }
+
+        // Wait for all children to die
+        while ((wpid = wait(&tmp)) > 0);
+
+        // Print results
+        printf("Array: %d ", array->data[0]);
+        printf("%d ", array->data[1]);
+        printf("%d ", array->data[2]);
+        printf("%d ", array->data[3]);
+        printf("%d\n", array->data[4]);
+
+        printf("Minimum: %d\n", array->data[4]);
+        printf("Maximum: %d\n", array->data[0]);
+        printf("Median: %d\n", array->data[2]);
 
     exit(EXIT_SUCCESS);
     } 
 
 }
 
-// Initialize the semaphore to 1
+// Set the semaphores
 static int set_semvalue(int sem_id) {
     union semun sem_union;
     sem_union.val = 1;
